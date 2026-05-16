@@ -1,0 +1,2 @@
+class InvalidLogInputException(Exception):
+    pass
