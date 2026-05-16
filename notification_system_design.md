@@ -586,7 +586,7 @@ Asynchronous queue-based fan-out is the correct design for high-volume notificat
 
 ### Requirement
 
-Introduce a Priority Inbox that always returns the top `n` most important notifications first, without implementing code in this document.
+Introduce a Priority Inbox that always returns the top `n` most important notifications first. The repository now includes a working backend implementation under `notification_app_be` that fetches live notifications from the provided protected API and returns ranked results.
 
 ### Ranking Strategy
 
@@ -613,6 +613,28 @@ Example weights:
 - `unread_bonus = 30 if isRead = false else 0`
 - `recency_factor = max(0, 50 - age_in_hours)`
 
+### Implemented Backend Approach
+
+The implemented service follows this request flow:
+
+```text
+Client -> FastAPI Priority Endpoint -> Upstream Notifications API -> Ranking Engine -> Top N Response
+```
+
+Implementation characteristics:
+
+- Fetches notifications from the protected upstream API using the configured bearer token.
+- Normalizes incoming fields such as `ID`, `Type`, `Message`, and `Timestamp`.
+- Applies deterministic score-based ranking using type weight, unread bonus, and recency score.
+- Supports configurable `top_n` retrieval through a REST endpoint.
+- Returns a structured JSON response containing the ranked notifications and score breakdown.
+
+Implemented endpoint:
+
+```text
+GET /api/v1/notifications/priority?top_n=10
+```
+
 ### Efficient Top-10 Retrieval
 
 For a stream or large list of notifications, maintain a min heap of size `K = 10`.
@@ -637,6 +659,10 @@ Algorithm outline:
 - Supports incremental updates better than full-list resorting.
 - Keeps compute cost predictable for top-10 style inboxes.
 
+### Output Validation
+
+The implemented service was validated by running the local FastAPI application and fetching live ranked results from the endpoint. The returned output correctly prioritizes `Placement` notifications above `Result` and `Event`, while preserving recency-based ordering within the same type class.
+
 ### Stage 6 Conclusion
 
-The Priority Inbox should use score-based ranking with a bounded min heap for efficient top-`n` retrieval. This approach balances business relevance, unread emphasis, and recency while remaining computationally efficient.
+The Priority Inbox is implemented using score-based ranking with a bounded min heap for efficient top-`n` retrieval. This approach balances business relevance, unread emphasis, and recency while remaining computationally efficient and production-friendly.
